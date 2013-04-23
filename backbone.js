@@ -250,6 +250,7 @@
     this.attributes = {};
     if (options.collection) this.collection = options.collection;
     if (options.parse) attrs = this.parse(attrs, options) || {};
+    options._attrs = attrs;
     if (defaults = _.result(this, 'defaults')) {
       attrs = _.defaults({}, attrs, defaults);
     }
@@ -675,14 +676,15 @@
       // Turn bare objects into model references, and prevent invalid models
       // from being added.
       for (i = 0, l = models.length; i < l; i++) {
-        if (!(model = this._prepareModel(models[i], options))) continue;
+        if (!(model = this._prepareModel(attrs = models[i], options))) continue;
 
         // If a duplicate is found, prevent it from being added and
         // optionally merge it into the existing model.
         if (existing = this.get(model)) {
           if (remove) modelMap[existing.cid] = true;
           if (merge) {
-            existing.set(model.attributes, options);
+            attrs = attrs === model ? model.attributes : options._attrs;
+            existing.set(attrs, options);
             if (sortable && !sort && existing.hasChanged(sortAttr)) sort = true;
           }
 
@@ -981,11 +983,16 @@
   // having to worry about render order ... and makes it easy for the view to
   // react to specific changes in the state of your models.
 
+  // Options with special meaning *(e.g. model, collection, id, className)* are
+  // attached directly to the view.  See `viewOptions` for an exhaustive
+  // list.
+
   // Creating a Backbone.View creates its initial element outside of the DOM,
   // if an existing element is not provided...
   var View = Backbone.View = function(options) {
     this.cid = _.uniqueId('view');
-    this._configure(options || {});
+    options || (options = {});
+    _.extend(this, _.pick(options, viewOptions));
     this._ensureElement();
     this.initialize.apply(this, arguments);
     this.delegateEvents();
@@ -1080,16 +1087,6 @@
     undelegateEvents: function() {
       this.$el.off('.delegateEvents' + this.cid);
       return this;
-    },
-
-    // Performs the initial configuration of a View with a set of options.
-    // Keys with special meaning *(e.g. model, collection, id, className)* are
-    // attached directly to the view.  See `viewOptions` for an exhaustive
-    // list.
-    _configure: function(options) {
-      if (this.options) options = _.extend({}, _.result(this, 'options'), options);
-      _.extend(this, _.pick(options, viewOptions));
-      this.options = options;
     },
 
     // Ensure that the View has a DOM element to render into.
